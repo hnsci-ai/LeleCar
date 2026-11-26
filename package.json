@@ -1,0 +1,21 @@
+{
+  "name": "apex-horizon-lan-racing",
+  "version": "1.0.0",
+  "description": "Near-AAA 3D Web Racing Game with LAN Multiplayer",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "build:models": "blender --background --python blender/normalize_real_cars.py && blender --background --python blender/generate_props.py",
+    "start": "node server/index.js",
+    "dev:server": "node server/index.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "three": "^0.172.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "vite": "^6.0.11"
+  }
+}

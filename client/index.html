@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>APEX HORIZON // 3D LAN Racing</title>
+  <link rel="stylesheet" href="/src/styles.css" />
+</head>
+<body>
+  <!-- Fullscreen WebGL Canvas -->
+  <canvas id="game-canvas"></canvas>
+
+  <!-- Nitro Speed Lines / Vignette Overlay -->
+  <div id="speed-vignette"></div>
+
+  <!-- Top Utility Bar (always subtle in corner) -->
+  <div id="top-bar">
+    <div class="brand-badge">
+      <span class="brand-dot"></span>
+      <span class="brand-title">APEX HORIZON</span>
+      <span class="brand-tag">LAN 3D</span>
+    </div>
+    <div class="top-controls">
+      <div id="ping-badge" class="pill hidden">PING: <span id="ping-val">--</span> ms</div>
+      <button id="btn-bgm" class="icon-btn" title="Toggle Music (B)">BGM: ON</button>
+      <button id="btn-mute" class="icon-btn" title="Toggle Sound (M)">SFX: ON</button>
+      <button id="btn-trans" class="icon-btn hidden" title="切换自动/手动挡 (T)">SHIFT: AT</button>
+      <button id="btn-tcs" class="icon-btn hidden" title="牵引力控制 SPORT/OFF (H)">TCS: SPORT</button>
+      <button id="btn-cam" class="icon-btn hidden" title="Switch Camera (C)">CAM: CHASE</button>
+      <button id="btn-exit-race" class="icon-btn danger-outline hidden" title="Return to Lobby (ESC)">返回大厅</button>
+    </div>
+  </div>
+
+  <!-- SHOWROOM / LOBBY OVERLAY -->
+  <div id="menu-overlay">
+    <!-- Left Column: Player & Room Join / Lobby -->
+    <div class="glass-panel left-panel">
+      <div class="panel-header">
+        <div class="kicker">LOCAL AREA NETWORK MULTIPLAYER</div>
+        <h1>GARAGE &amp; LOBBY</h1>
+      </div>
+
+      <!-- LAN Share Banner -->
+      <div class="lan-banner">
+        <div class="lan-label">局域网联机地址 (LAN URL)</div>
+        <div class="lan-url-row">
+          <code id="lan-url-text">Detecting LAN IP...</code>
+          <button id="btn-copy-lan" class="small-btn">复制</button>
+        </div>
+      </div>
+
+      <!-- Pre-Join Form -->
+      <div id="join-section">
+        <div class="field-group">
+          <label for="input-name">车手昵称 / DRIVER NAME</label>
+          <input id="input-name" type="text" maxlength="16" placeholder="APEX_DRIVER" />
+        </div>
+        <div class="field-group">
+          <label for="input-room">房间号 / ROOM CODE</label>
+          <div class="room-row">
+            <input id="input-room" type="text" maxlength="6" value="LAN1" />
+            <button id="btn-join-room" class="primary-btn">加入房间</button>
+            <button id="btn-create-room" class="secondary-btn">新建</button>
+          </div>
+        </div>
+        <div class="hint-text">同一局域网下的朋友打开上方地址，点击下方房间或输入相同房间号即可联机！</div>
+        <div class="active-rooms-wrap">
+          <div class="roster-header" style="margin-top:12px">
+            <span>局域网在线房间 / ACTIVE ROOMS</span>
+          </div>
+          <div id="active-rooms-list" class="active-rooms-list"></div>
+        </div>
+      </div>
+
+      <!-- Active Lobby Panel -->
+      <div id="lobby-section" class="hidden">
+        <div class="lobby-room-bar">
+          <div>
+            <span class="muted">ROOM</span>
+            <strong id="lobby-room-code" class="accent-text">LAN1</strong>
+            <span id="lobby-state-badge" class="player-badge badge-ready" style="margin-left:8px">LOBBY</span>
+          </div>
+          <button id="btn-leave-room" class="small-btn danger-btn">退出房间</button>
+        </div>
+
+        <div id="lobby-status-banner" class="lobby-status-banner">等待开始比赛...</div>
+
+        <!-- Track & Race Settings (Host Editable) -->
+        <div class="settings-grid">
+          <div class="setting-item">
+            <label>赛道 / TRACK</label>
+            <select id="select-track"></select>
+          </div>
+          <div class="setting-item">
+            <label>圈数 / LAPS</label>
+            <select id="select-laps">
+              <option value="1">1 LAP</option>
+              <option value="2">2 LAPS</option>
+              <option value="3" selected>3 LAPS</option>
+              <option value="5">5 LAPS</option>
+            </select>
+          </div>
+          <div class="setting-item">
+            <label>AI 对手 / BOTS</label>
+            <select id="select-bots">
+              <option value="0">0 BOTS</option>
+              <option value="2">2 BOTS</option>
+              <option value="3" selected>3 BOTS</option>
+              <option value="5">5 BOTS</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Players Roster -->
+        <div class="roster-header">
+          <span>在线车手 (<span id="player-count">1</span>/8)</span>
+          <span class="muted">状态</span>
+        </div>
+        <div id="player-list" class="player-list"></div>
+
+        <!-- Action Buttons -->
+        <div class="lobby-actions">
+          <button id="btn-join-live" class="primary-btn full-w hidden">立即切入比赛 / JOIN LIVE RACE</button>
+          <button id="btn-ready" class="secondary-btn full-w">准备 / READY</button>
+          <button id="btn-start-race" class="primary-btn full-w hidden">开始比赛 / START RACE</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column: Supercar Selector & Stats -->
+    <div class="glass-panel right-panel">
+      <div class="kicker">SUPERCAR GARAGE</div>
+      <h2 id="car-name">FERRARI 458 ITALIA</h2>
+      <div id="car-subtitle" class="car-subtitle">4.5L NA V8 • Rosso Corsa • Balanced</div>
+
+      <div id="car-cards" class="car-cards"></div>
+
+      <div class="stat-bars">
+        <div class="stat-row">
+          <span>极速 TOP SPEED</span>
+          <div class="bar-track"><div id="stat-speed" class="bar-fill"></div></div>
+        </div>
+        <div class="stat-row">
+          <span>加速 ACCEL</span>
+          <div class="bar-track"><div id="stat-accel" class="bar-fill"></div></div>
+        </div>
+        <div class="stat-row">
+          <span>操控 HANDLING</span>
+          <div class="bar-track"><div id="stat-handling" class="bar-fill"></div></div>
+        </div>
+        <div class="stat-row">
+          <span>氮气 NITRO</span>
+          <div class="bar-track"><div id="stat-nitro" class="bar-fill"></div></div>
+        </div>
+      </div>
+
+      <div class="controls-card">
+        <div class="controls-title">操作指南 / CONTROLS</div>
+        <div class="keys-grid">
+          <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> / 方向键 — 油门 / 刹车 / 转向</div>
+          <div><kbd>SPACE</kbd> — 手刹起漂 • <kbd>SHIFT</kbd> — 氮气加速</div>
+          <div><kbd>T</kbd> 自动/手动挡 • <kbd>Q</kbd>/<kbd>E</kbd> 降/升挡 (7速DCT)</div>
+          <div><kbd>H</kbd> 牵引力TCS • <kbd>C</kbd> 视角 • <kbd>R</kbd> 复位 • 支持手柄</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- IN-RACE HUD -->
+  <div id="race-hud" class="hidden">
+    <!-- Top Left: Position, Lap, Timer -->
+    <div class="hud-top-left">
+      <div class="pos-box">
+        <div class="pos-num" id="hud-pos">1</div>
+        <div class="pos-meta">
+          <span id="hud-pos-suffix">ST</span>
+          <span class="pos-total">/ <span id="hud-total-racers">4</span></span>
+        </div>
+      </div>
+      <div class="race-meta-box">
+        <div class="meta-row">
+          <span class="meta-label">LAP</span>
+          <span class="meta-val"><span id="hud-lap">1</span> / <span id="hud-laps-total">3</span></span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">TIME</span>
+          <span class="meta-val mono" id="hud-time">00:00.00</span>
+        </div>
+        <div class="meta-row">
+          <span class="meta-label">BEST</span>
+          <span class="meta-val mono accent-text" id="hud-best">--:--.--</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top Right: Live Standings -->
+    <div class="hud-standings" id="hud-standings"></div>
+
+    <!-- Center Alerts: Countdown, Launch Hint, Slipstream, Event Toast, Wrong Way, Drift Score -->
+    <div id="countdown-banner" class="hidden">3</div>
+    <div id="launch-hint" class="hidden">按住 W 轰油门至转速表黄金区，绿灯触发弹射起步！</div>
+    <div id="slipstream-badge" class="hidden">SLIPSTREAM // 尾流加速</div>
+    <div id="event-toast" class="hidden">PERFECT LAUNCH!</div>
+    <div id="wrong-way-banner" class="hidden">WRONG WAY // 逆行警告</div>
+    <div id="drift-banner" class="hidden">
+      <div class="drift-label">DRIFT +NITRO</div>
+      <div id="drift-points">+0</div>
+    </div>
+
+    <!-- Bottom Left: Minimap -->
+    <div class="hud-minimap-wrap">
+      <canvas id="minimap-canvas" width="180" height="180"></canvas>
+    </div>
+
+    <!-- Bottom Right: AAA Tachometer, Shift Lights, Gear, Speed, Telemetry & Nitro -->
+    <div class="hud-tacho-wrap">
+      <div id="hud-shift-lights" class="shift-lights" aria-hidden="true">
+        <span class="shift-led"></span>
+        <span class="shift-led"></span>
+        <span class="shift-led"></span>
+        <span class="shift-led"></span>
+        <span class="shift-led"></span>
+        <span class="shift-led"></span>
+        <span class="shift-led"></span>
+        <span class="shift-led"></span>
+      </div>
+      <svg class="tacho-svg" viewBox="0 0 220 140">
+        <path class="tacho-bg" d="M 24 122 A 86 86 0 1 1 196 122" />
+        <path id="tacho-arc" class="tacho-fill" d="M 24 122 A 86 86 0 1 1 196 122" stroke-dasharray="365" stroke-dashoffset="365" />
+      </svg>
+      <div class="tacho-center">
+        <div class="gear-row">
+          <div id="hud-gear" class="gear-badge">1</div>
+          <span id="hud-trans-tag" class="trans-tag">AT</span>
+        </div>
+        <div id="hud-speed" class="speed-num">0</div>
+        <div class="speed-unit">KM/H • <span id="hud-rpm" class="mono">1100</span> RPM</div>
+      </div>
+      <div class="telemetry-strip">
+        <div class="pedal-bars">
+          <div class="pedal-row">
+            <span class="pedal-lbl">THR</span>
+            <div class="pedal-track"><div id="hud-throttle-fill" class="pedal-fill throttle"></div></div>
+          </div>
+          <div class="pedal-row">
+            <span class="pedal-lbl">BRK</span>
+            <div class="pedal-track"><div id="hud-brake-fill" class="pedal-fill brake"></div></div>
+          </div>
+        </div>
+        <div class="assist-lights">
+          <span id="ind-tcs" class="assist-pill">TCS</span>
+          <span id="ind-abs" class="assist-pill">ABS</span>
+          <span id="ind-slip" class="assist-pill">SLIP</span>
+        </div>
+        <div class="gforce-pad" title="G-Force">
+          <div class="gforce-cross-h"></div>
+          <div class="gforce-cross-v"></div>
+          <div id="hud-g-dot" class="gforce-dot"></div>
+        </div>
+      </div>
+      <div class="nitro-bar-wrap">
+        <span class="nitro-label">N2O</span>
+        <div class="nitro-track">
+          <div id="hud-nitro-fill" class="nitro-fill"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RACE FINISHED PODIUM OVERLAY -->
+  <div id="finish-overlay" class="hidden">
+    <div class="glass-panel finish-panel">
+      <div class="kicker">CHECKERED FLAG // RACE COMPLETE</div>
+      <h1 id="finish-headline">FINISH!</h1>
+      <div id="podium-list" class="podium-list"></div>
+      <div class="finish-actions">
+        <button id="btn-race-again" class="primary-btn hidden">再来一局 / RACE AGAIN</button>
+        <button id="btn-back-lobby" class="secondary-btn">返回房间大厅 / BACK TO LOBBY</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
